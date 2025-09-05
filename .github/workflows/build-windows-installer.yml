@@ -34,7 +34,7 @@ jobs:
         fetch-depth: 0
     
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     
@@ -184,7 +184,7 @@ jobs:
       shell: bash
     
     - name: Upload executable artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: whisper-transcriber-executable-${{ github.sha }}
         path: artifacts/WhisperTranscriber/
@@ -192,7 +192,7 @@ jobs:
     
     - name: Upload NSIS installer
       if: github.event.inputs.installer_type == 'nsis' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: whisper-transcriber-nsis-installer-${{ github.sha }}
         path: artifacts/WhisperTranscriber-1.0.0-NSIS-Setup.exe
@@ -201,7 +201,7 @@ jobs:
     
     - name: Upload Inno Setup installer
       if: github.event.inputs.installer_type == 'inno' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: whisper-transcriber-inno-installer-${{ github.sha }}
         path: artifacts/WhisperTranscriber-1.0.0-InnoSetup.exe
@@ -209,7 +209,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload build info
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-info-${{ github.sha }}
         path: artifacts/BUILD_INFO.txt
