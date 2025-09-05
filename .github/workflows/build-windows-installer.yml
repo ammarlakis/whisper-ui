@@ -40,7 +40,8 @@ jobs:
         if [ -n "${{ github.event.inputs.installer_type }}" ]; then
           echo "INSTALLER_TYPE=${{ github.event.inputs.installer_type }}" >> "$GITHUB_ENV"
         else
-          echo "INSTALLER_TYPE=both" >> "$GITHUB_ENV"
+          # Default to NSIS for reliability unless specified
+          echo "INSTALLER_TYPE=nsis" >> "$GITHUB_ENV"
         fi
     
     - name: Set up Python ${{ matrix.python-version }}
