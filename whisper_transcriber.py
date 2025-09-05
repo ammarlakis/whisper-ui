@@ -306,7 +306,7 @@ class MainWindow(Adw.ApplicationWindow):
         
         # Get the text buffer
         self.output_buffer = self.output_textview.get_buffer()
-        self.output_buffer.set_text("Transcription will appear here")
+        self.output_buffer.set_text("Transcription will appear here", -1)
         
         # Scrolled window for output
         scrolled = Gtk.ScrolledWindow()
@@ -371,7 +371,7 @@ class MainWindow(Adw.ApplicationWindow):
             
         self.transcribe_button.set_sensitive(False)
         self.stop_button.set_sensitive(True)
-        self.output_buffer.set_text("Transcribing...")
+        self.output_buffer.set_text("Transcribing...", -1)
         self.progress_bar.set_fraction(0.0)
         
         # Get selected parameters
@@ -807,7 +807,7 @@ class MainWindow(Adw.ApplicationWindow):
     
     def update_transcription_text(self, text):
         """Update the transcription text in real-time"""
-        self.output_buffer.set_text(text)
+        self.output_buffer.set_text(text, -1)
         
         # Auto-scroll to bottom to show latest text
         mark = self.output_buffer.get_insert()
@@ -821,7 +821,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.status_label.set_text(message)
         
     def on_transcription_complete(self, result):
-        self.output_buffer.set_text(result)
+        self.output_buffer.set_text(result, -1)
         self.transcribe_button.set_sensitive(True)
         self.stop_button.set_sensitive(False)
         self.update_status("Transcription complete")
