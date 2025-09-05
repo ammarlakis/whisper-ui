@@ -136,8 +136,8 @@ jobs:
       run: |
         python --version
         pip --version
-        cmd /c "makensis /VERSION"
-        cmd /c "iscc /?"
+        makensis -VERSION
+        iscc || true
         pkg-config --modversion gtk4
       shell: bash
     
