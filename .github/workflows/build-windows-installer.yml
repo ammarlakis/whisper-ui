@@ -33,6 +33,16 @@ jobs:
       with:
         fetch-depth: 0
     
+    - name: Resolve installer type
+      id: resolve_installer
+      shell: bash
+      run: |
+        if [ -n "${{ github.event.inputs.installer_type }}" ]; then
+          echo "INSTALLER_TYPE=${{ github.event.inputs.installer_type }}" >> "$GITHUB_ENV"
+        else
+          echo "INSTALLER_TYPE=both" >> "$GITHUB_ENV"
+        fi
+    
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -75,49 +85,22 @@ jobs:
         pip install pyinstaller
       shell: bash
     
-    - name: Install Python dependencies (non-GTK)
+    - name: Install Python dependencies (Windows Python)
       run: |
-        # Install PyTorch with CPU support first
+        # Install PyTorch CPU wheels and dependencies
         pip install torch>=1.9.0 --index-url https://download.pytorch.org/whl/cpu
         pip install torchaudio>=0.9.0 --index-url https://download.pytorch.org/whl/cpu
-        
-        # Install other Python dependencies
-        pip install numpy>=1.21.0
-        pip install tqdm>=4.62.0
-        pip install numba>=0.56.0
-        pip install ffmpeg-python>=0.2.0
-        pip install psutil>=5.8.0
         pip install git+https://github.com/openai/whisper.git
+        # Core libs
+        pip install numpy>=1.21.0 tqdm>=4.62.0 numba>=0.56.0 ffmpeg-python>=0.2.0 psutil>=5.8.0
+        # GTK bindings for Windows Python
+        pip install PyGObject>=3.42.0
       shell: bash
     
-    - name: Setup MSYS2 Python environment
-      shell: msys2 {0}
+    - name: Verify Windows Python GTK import
       run: |
-        # Verify MSYS2 Python installation
-        python --version
-        pip --version
-        
-        # Install PyInstaller in MSYS2
-        pip install pyinstaller
-        
-        # Install additional Python packages in MSYS2
-        pip install numpy tqdm psutil
-        
-        # Test PyGObject import
-        python -c "import gi; print('PyGObject available')"
-        python -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print('GTK4 working')"
-    
-    - name: Install PyTorch in MSYS2
-      shell: msys2 {0}
-      run: |
-        # Install PyTorch CPU version in MSYS2
-        pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-        
-        # Install Whisper
-        pip install git+https://github.com/openai/whisper.git
-        
-        # Install other dependencies
-        pip install ffmpeg-python numba
+        python -c "import gi; gi.require_version('Gtk','4.0'); from gi.repository import Gtk; print('GTK4 import OK')"
+      shell: bash
     
     - name: Install NSIS
       run: |
@@ -140,21 +123,19 @@ jobs:
         pkg-config --modversion gtk4
       shell: bash
     
-    - name: Test MSYS2 Python imports
-      shell: msys2 {0}
+    - name: Test Python imports
       run: |
-        python -c "import sys; print('MSYS2 Python executable:', sys.executable)"
-        python -c "import gi; print('PyGObject version:', gi.__version__)"
-        python -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print('GTK4 import successful')"
-        python -c "import torch; print('PyTorch version:', torch.__version__)"
-        python -c "import whisper; print('Whisper available')"
+        python -c "import sys; print('Python:', sys.version)"
+        python -c "import gi; gi.require_version('Gtk','4.0'); from gi.repository import Gtk; print('GTK4 import successful')"
+        python -c "import torch, whisper; print('Torch:', torch.__version__)"
+      shell: bash
       continue-on-error: true
     
     - name: Build executable with PyInstaller
-      shell: msys2 {0}
       run: |
-        # Build with MSYS2 PyInstaller that has access to GTK4
+        # Build with Windows Python; GTK4 is provided by MSYS2 runtime on PATH
         python -m PyInstaller whisper_transcriber.spec --clean --noconfirm
+      shell: bash
     
     - name: Verify executable
       run: |
@@ -194,7 +175,7 @@ jobs:
       shell: bash
     
     - name: Build NSIS Installer
-      if: github.event.inputs.installer_type == 'nsis' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      if: env.INSTALLER_TYPE == 'nsis' || env.INSTALLER_TYPE == 'both'
       run: |
         makensis installer.nsi
         if [ -f "WhisperTranscriber-1.0.0-Setup.exe" ]; then
@@ -206,7 +187,7 @@ jobs:
       shell: bash
     
     - name: Build Inno Setup Installer
-      if: github.event.inputs.installer_type == 'inno' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      if: env.INSTALLER_TYPE == 'inno' || env.INSTALLER_TYPE == 'both'
       run: |
         mkdir -p installer_output
         iscc installer.iss
@@ -254,7 +235,7 @@ jobs:
         retention-days: 30
     
     - name: Upload NSIS installer
-      if: github.event.inputs.installer_type == 'nsis' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      if: env.INSTALLER_TYPE == 'nsis' || env.INSTALLER_TYPE == 'both'
       uses: actions/upload-artifact@v4
       with:
         name: whisper-transcriber-nsis-installer-${{ github.sha }}
@@ -263,7 +244,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload Inno Setup installer
-      if: github.event.inputs.installer_type == 'inno' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      if: env.INSTALLER_TYPE == 'inno' || env.INSTALLER_TYPE == 'both'
       uses: actions/upload-artifact@v4
       with:
         name: whisper-transcriber-inno-installer-${{ github.sha }}

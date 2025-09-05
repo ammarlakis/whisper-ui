@@ -13,7 +13,9 @@ LicenseFile=LICENSE.txt
 InfoBeforeFile=README.md
 OutputDir=installer_output
 OutputBaseFilename=WhisperTranscriber-1.0.0-Setup
+#ifexist "icon.ico"
 SetupIconFile=icon.ico
+#endif
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

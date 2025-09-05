@@ -30,11 +30,17 @@ VIAddVersionKey "FileVersion" "${APP_VERSION}"
 
 ; Modern UI Configuration
 !define MUI_ABORTWARNING
-!define MUI_ICON "icon.ico"
-!define MUI_UNICON "icon.ico"
-!define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "header.bmp"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "welcome.bmp"
+!ifexist "icon.ico"
+  !define MUI_ICON "icon.ico"
+  !define MUI_UNICON "icon.ico"
+!endif
+!ifexist "header.bmp"
+  !define MUI_HEADERIMAGE
+  !define MUI_HEADERIMAGE_BITMAP "header.bmp"
+!endif
+!ifexist "welcome.bmp"
+  !define MUI_WELCOMEFINISHPAGE_BITMAP "welcome.bmp"
+!endif
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
