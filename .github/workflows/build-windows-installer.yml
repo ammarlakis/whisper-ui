@@ -55,17 +55,42 @@ jobs:
           mingw-w64-x86_64-gtk4
           mingw-w64-x86_64-python3-gobject
           mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-gobject-introspection
+          mingw-w64-x86_64-python3-cairo
     
-    - name: Add MSYS2 to PATH
+    - name: Setup GTK4 environment
       run: |
         echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
         echo "C:\msys64\mingw64\lib\girepository-1.0" >> $GITHUB_PATH
+        echo "PKG_CONFIG_PATH=C:\msys64\mingw64\lib\pkgconfig" >> $GITHUB_ENV
+        echo "GI_TYPELIB_PATH=C:\msys64\mingw64\lib\girepository-1.0" >> $GITHUB_ENV
+        echo "XDG_DATA_DIRS=C:\msys64\mingw64\share" >> $GITHUB_ENV
       shell: bash
     
-    - name: Install Python dependencies
+    - name: Install Python build dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements-build.txt
+        python -m pip install --upgrade pip setuptools wheel
+        pip install pyinstaller
+      shell: bash
+    
+    - name: Install PyGObject from MSYS2
+      run: |
+        # Use MSYS2's PyGObject instead of pip to avoid compilation issues
+        C:\msys64\mingw64\bin\python -m pip install --upgrade pip
+      shell: bash
+    
+    - name: Install remaining Python dependencies
+      run: |
+        # Install other dependencies excluding PyGObject
+        pip install torch>=1.9.0 --index-url https://download.pytorch.org/whl/cpu
+        pip install torchaudio>=0.9.0 --index-url https://download.pytorch.org/whl/cpu
+        pip install numpy>=1.21.0
+        pip install tqdm>=4.62.0
+        pip install numba>=0.56.0
+        pip install ffmpeg-python>=0.2.0
+        pip install psutil>=5.8.0
+        pip install git+https://github.com/openai/whisper.git
+      shell: bash
     
     - name: Install NSIS
       run: |
@@ -90,6 +115,25 @@ jobs:
     
     - name: Build executable with PyInstaller
       run: |
+        # Use MSYS2 Python with proper GTK4 setup
+        export PATH="/c/msys64/mingw64/bin:$PATH"
+        export PKG_CONFIG_PATH="/c/msys64/mingw64/lib/pkgconfig"
+        export GI_TYPELIB_PATH="/c/msys64/mingw64/lib/girepository-1.0"
+        
+        # Install PyGObject in the main Python environment
+        python -c "import sys; print('Python path:', sys.executable)"
+        
+        # Copy GTK4 and GI files to a location PyInstaller can find
+        mkdir -p gtk_runtime/bin gtk_runtime/lib gtk_runtime/share
+        cp -r /c/msys64/mingw64/bin/*.dll gtk_runtime/bin/ || true
+        cp -r /c/msys64/mingw64/lib/girepository-1.0 gtk_runtime/lib/ || true
+        cp -r /c/msys64/mingw64/lib/gdk-pixbuf-2.0 gtk_runtime/lib/ || true
+        
+        # Install PyGObject using pip with proper environment
+        pip install --no-build-isolation pycairo
+        pip install --no-build-isolation PyGObject
+        
+        # Build with PyInstaller
         pyinstaller whisper_transcriber.spec --clean --noconfirm
       shell: bash
     
