@@ -5,7 +5,11 @@ import sys
 from pathlib import Path
 
 # Add the project directory to Python path
-project_dir = Path(__file__).parent
+try:
+    project_dir = Path(__file__).parent
+except NameError:
+    # When executed by some runners, __file__ may be undefined
+    project_dir = Path.cwd()
 sys.path.insert(0, str(project_dir))
 
 block_cipher = None
