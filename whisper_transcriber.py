@@ -1,4 +1,3 @@
-import gi
 import os
 import threading
 import subprocess
@@ -11,9 +10,67 @@ import atexit
 from pathlib import Path
 from datetime import timedelta
 
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
-from gi.repository import Gtk, Gio, GLib, Adw
+# Bootstrap GTK/GI environment for frozen (PyInstaller) builds on Windows
+def _bootstrap_gtk_env():
+    try:
+        base_dir = None
+        if getattr(sys, 'frozen', False):
+            base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Ensure DLL search path includes our bundle
+        if hasattr(os, 'add_dll_directory') and os.name == 'nt':
+            try:
+                os.add_dll_directory(base_dir)
+                bin_dir = os.path.join(base_dir, 'bin')
+                if os.path.isdir(bin_dir):
+                    os.add_dll_directory(bin_dir)
+            except Exception:
+                pass
+
+        # GI typelibs
+        candidates = [
+            os.path.join(base_dir, 'gi_typelibs'),
+            os.path.join(base_dir, 'lib', 'girepository-1.0'),
+            os.path.join(base_dir, 'girepository-1.0'),
+        ]
+        for p in candidates:
+            if os.path.isdir(p):
+                os.environ['GI_TYPELIB_PATH'] = p + os.pathsep + os.environ.get('GI_TYPELIB_PATH', '')
+                break
+
+        # GTK data (themes, schemas)
+        share_dir = os.path.join(base_dir, 'share')
+        if os.path.isdir(share_dir):
+            os.environ['XDG_DATA_DIRS'] = share_dir + os.pathsep + os.environ.get('XDG_DATA_DIRS', '')
+
+        # GDK pixbuf loaders
+        gdk_loaders_dir = os.path.join(base_dir, 'lib', 'gdk-pixbuf-2.0', '2.10.0', 'loaders')
+        if os.path.isdir(gdk_loaders_dir):
+            os.environ['GDK_PIXBUF_MODULEDIR'] = gdk_loaders_dir
+            cache = os.path.join(base_dir, 'lib', 'gdk-pixbuf-2.0', '2.10.0', 'loaders.cache')
+            if os.path.exists(cache):
+                os.environ['GDK_PIXBUF_MODULE_FILE'] = cache
+    except Exception:
+        pass
+
+_bootstrap_gtk_env()
+
+try:
+    import gi
+    gi.require_version('Gtk', '4.0')
+    gi.require_version('Adw', '1')
+    from gi.repository import Gtk, Gio, GLib, Adw
+except Exception as e:
+    # Provide a visible error on Windows if GTK cannot be initialized
+    if os.name == 'nt':
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, f"Failed to initialize GTK:\n{e}", "Whisper Transcriber", 0x10)
+        except Exception:
+            pass
+    raise
 
 class WhisperTranscriber(Adw.Application):    
     def __init__(self):

@@ -14,9 +14,20 @@ sys.path.insert(0, str(project_dir))
 
 block_cipher = None
 
+"""
+PyInstaller spec for Whisper Transcriber with GTK4 (Windows)
+
+Key additions:
+- Bundle GTK typelibs (GI) and set up runtime env via app bootstrap
+- Bundle GTK 'share' and gdk-pixbuf loaders so resources and schemas are found
+- Handle both MSYS2 and GVSBuild (wingtk) naming/layouts
+"""
+
 # GTK and GI related files
 gi_typelibs_path = None
 gtk_libs_path = None
+gtk_share_path = None
+gdk_pixbuf_root = None
 
 # Try to find GTK installation paths
 if sys.platform == 'win32':
@@ -41,6 +52,14 @@ if sys.platform == 'win32':
         candidate = os.path.join(env_gtk_root, 'bin')
         if os.path.exists(candidate):
             gtk_libs_path = candidate
+        # share path (resources, schemas, themes)
+        share_candidate = os.path.join(env_gtk_root, 'share')
+        if os.path.exists(share_candidate):
+            gtk_share_path = share_candidate
+        # gdk-pixbuf modules
+        gdk_candidate = os.path.join(env_gtk_root, 'lib', 'gdk-pixbuf-2.0')
+        if os.path.exists(gdk_candidate):
+            gdk_pixbuf_root = gdk_candidate
     if not gtk_libs_path:
         gtk_possible_paths = [
             r'C:\msys64\mingw64\bin',
@@ -57,6 +76,14 @@ datas = []
 # Include GTK typelibs if found
 if gi_typelibs_path:
     datas.append((gi_typelibs_path, 'gi_typelibs'))
+
+# Include GTK share resources (themes, schemas, etc.) if found
+if gtk_share_path:
+    datas.append((gtk_share_path, 'share'))
+
+# Include gdk-pixbuf loader tree if found (so images load properly)
+if gdk_pixbuf_root:
+    datas.append((gdk_pixbuf_root, os.path.join('lib', 'gdk-pixbuf-2.0')))
 
 # Include any additional data files your app needs
 # datas.append(('data', 'data'))
@@ -107,7 +134,7 @@ hiddenimports = [
     'psutil',
     'tqdm',
     'numba',
-    'pkg_resources.py2_warn'
+    # do not include pkg_resources.py2_warn; not present in modern setuptools
 ]
 
 a = Analysis(
