@@ -25,7 +25,7 @@ jobs:
     
     strategy:
       matrix:
-        python-version: ['3.11']
+        python-version: ['3.12']
     
     steps:
     - name: Checkout repository
@@ -79,6 +79,24 @@ jobs:
         echo "XDG_DATA_DIRS=C:\msys64\mingw64\share" >> $GITHUB_ENV
       shell: bash
     
+    - name: Install GTK4 runtime (Gvsbuild cp312)
+      run: |
+        set -euxo pipefail
+        GTK_TAG=2024.10.0
+        GTK_ZIP=GTK4_Gvsbuild_${GTK_TAG}_x64.zip
+        GTK_URL="https://github.com/wingtk/gvsbuild/releases/download/${GTK_TAG}/${GTK_ZIP}"
+        DEST="$RUNNER_TEMP/gtk4"
+        mkdir -p "$DEST"
+        echo "Downloading GTK runtime: $GTK_URL"
+        curl -L "$GTK_URL" -o "$RUNNER_TEMP/$GTK_ZIP"
+        7z x -y -o"$DEST" "$RUNNER_TEMP/$GTK_ZIP" >NUL
+        echo "GVSBUILD_ROOT=$DEST" >> $GITHUB_ENV
+        echo "GTK_RUNTIME_DIR=$DEST" >> $GITHUB_ENV
+        echo "GI_TYPELIB_PATH=$DEST\\lib\\girepository-1.0" >> $GITHUB_ENV
+        echo "PYTHONPATH=$DEST\\lib\\site-packages" >> $GITHUB_ENV
+        echo "$DEST\\bin" >> $GITHUB_PATH
+      shell: bash
+
     - name: Install Python build dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
@@ -93,13 +111,13 @@ jobs:
         pip install git+https://github.com/openai/whisper.git
         # Core libs
         pip install numpy>=1.21.0 tqdm>=4.62.0 numba>=0.56.0 ffmpeg-python>=0.2.0 psutil>=5.8.0
-        # GTK bindings for Windows Python
-        pip install PyGObject>=3.42.0
+        # Cairo wheel (gi cairo module relies on it)
+        pip install pycairo>=1.24.0
       shell: bash
     
     - name: Verify Windows Python GTK import
       run: |
-        python -c "import gi; gi.require_version('Gtk','4.0'); from gi.repository import Gtk; print('GTK4 import OK')"
+        python -c "import os,sys; print('PYTHONPATH=',os.environ.get('PYTHONPATH')); import gi; gi.require_version('Gtk','4.0'); from gi.repository import Gtk, Gio, GLib; print('GTK4 import OK')"
       shell: bash
     
     - name: Install NSIS
