@@ -1,0 +1,227 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      installer_type:
+        description: 'Installer type to build'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+        - nsis
+        - inno
+        - both
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.11']
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install MSYS2 and GTK4
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gtk4
+          mingw-w64-x86_64-python3-gobject
+          mingw-w64-x86_64-pkg-config
+    
+    - name: Add MSYS2 to PATH
+      run: |
+        echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
+        echo "C:\msys64\mingw64\lib\girepository-1.0" >> $GITHUB_PATH
+      shell: bash
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-build.txt
+    
+    - name: Install NSIS
+      run: |
+        choco install nsis -y
+        echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
+      shell: bash
+    
+    - name: Install Inno Setup
+      run: |
+        choco install innosetup -y
+        echo "C:\Program Files (x86)\Inno Setup 6" >> $GITHUB_PATH
+      shell: bash
+    
+    - name: Verify installations
+      run: |
+        python --version
+        pip --version
+        makensis /VERSION
+        iscc /?
+        pkg-config --modversion gtk4
+      shell: bash
+    
+    - name: Build executable with PyInstaller
+      run: |
+        pyinstaller whisper_transcriber.spec --clean --noconfirm
+      shell: bash
+    
+    - name: Verify executable
+      run: |
+        if [ ! -f "dist/WhisperTranscriber/WhisperTranscriber.exe" ]; then
+          echo "ERROR: Executable not found!"
+          exit 1
+        fi
+        echo "Executable built successfully"
+        ls -la dist/WhisperTranscriber/
+      shell: bash
+    
+    - name: Create LICENSE.txt if missing
+      run: |
+        if [ ! -f "LICENSE.txt" ]; then
+          echo "MIT License" > LICENSE.txt
+          echo "" >> LICENSE.txt
+          echo "Copyright (c) 2024 Whisper Transcriber Team" >> LICENSE.txt
+          echo "" >> LICENSE.txt
+          echo "Permission is hereby granted, free of charge, to any person obtaining a copy" >> LICENSE.txt
+          echo "of this software and associated documentation files (the \"Software\"), to deal" >> LICENSE.txt
+          echo "in the Software without restriction, including without limitation the rights" >> LICENSE.txt
+          echo "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell" >> LICENSE.txt
+          echo "copies of the Software, and to permit persons to whom the Software is" >> LICENSE.txt
+          echo "furnished to do so, subject to the following conditions:" >> LICENSE.txt
+          echo "" >> LICENSE.txt
+          echo "The above copyright notice and this permission notice shall be included in all" >> LICENSE.txt
+          echo "copies or substantial portions of the Software." >> LICENSE.txt
+          echo "" >> LICENSE.txt
+          echo "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR" >> LICENSE.txt
+          echo "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY," >> LICENSE.txt
+          echo "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE" >> LICENSE.txt
+          echo "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER" >> LICENSE.txt
+          echo "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM," >> LICENSE.txt
+          echo "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE" >> LICENSE.txt
+          echo "SOFTWARE." >> LICENSE.txt
+        fi
+      shell: bash
+    
+    - name: Build NSIS Installer
+      if: github.event.inputs.installer_type == 'nsis' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      run: |
+        makensis installer.nsi
+        if [ -f "WhisperTranscriber-1.0.0-Setup.exe" ]; then
+          echo "NSIS installer created successfully"
+        else
+          echo "ERROR: NSIS installer creation failed"
+          exit 1
+        fi
+      shell: bash
+    
+    - name: Build Inno Setup Installer
+      if: github.event.inputs.installer_type == 'inno' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      run: |
+        mkdir -p installer_output
+        iscc installer.iss
+        if [ -f "installer_output/WhisperTranscriber-1.0.0-Setup.exe" ]; then
+          echo "Inno Setup installer created successfully"
+        else
+          echo "ERROR: Inno Setup installer creation failed"
+          exit 1
+        fi
+      shell: bash
+    
+    - name: Prepare artifacts
+      run: |
+        mkdir -p artifacts
+        
+        # Copy executable
+        cp -r dist/WhisperTranscriber artifacts/
+        
+        # Copy installers if they exist
+        if [ -f "WhisperTranscriber-1.0.0-Setup.exe" ]; then
+          cp "WhisperTranscriber-1.0.0-Setup.exe" "artifacts/WhisperTranscriber-1.0.0-NSIS-Setup.exe"
+        fi
+        
+        if [ -f "installer_output/WhisperTranscriber-1.0.0-Setup.exe" ]; then
+          cp "installer_output/WhisperTranscriber-1.0.0-Setup.exe" "artifacts/WhisperTranscriber-1.0.0-InnoSetup.exe"
+        fi
+        
+        # Create build info
+        echo "Build Information" > artifacts/BUILD_INFO.txt
+        echo "=================" >> artifacts/BUILD_INFO.txt
+        echo "Build Date: $(date)" >> artifacts/BUILD_INFO.txt
+        echo "Python Version: $(python --version)" >> artifacts/BUILD_INFO.txt
+        echo "Commit: $GITHUB_SHA" >> artifacts/BUILD_INFO.txt
+        echo "Branch: $GITHUB_REF_NAME" >> artifacts/BUILD_INFO.txt
+        echo "Workflow: $GITHUB_WORKFLOW" >> artifacts/BUILD_INFO.txt
+        
+        ls -la artifacts/
+      shell: bash
+    
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: whisper-transcriber-executable-${{ github.sha }}
+        path: artifacts/WhisperTranscriber/
+        retention-days: 30
+    
+    - name: Upload NSIS installer
+      if: github.event.inputs.installer_type == 'nsis' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      uses: actions/upload-artifact@v3
+      with:
+        name: whisper-transcriber-nsis-installer-${{ github.sha }}
+        path: artifacts/WhisperTranscriber-1.0.0-NSIS-Setup.exe
+        retention-days: 30
+      continue-on-error: true
+    
+    - name: Upload Inno Setup installer
+      if: github.event.inputs.installer_type == 'inno' || github.event.inputs.installer_type == 'both' || github.event.inputs.installer_type == ''
+      uses: actions/upload-artifact@v3
+      with:
+        name: whisper-transcriber-inno-installer-${{ github.sha }}
+        path: artifacts/WhisperTranscriber-1.0.0-InnoSetup.exe
+        retention-days: 30
+      continue-on-error: true
+    
+    - name: Upload build info
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-info-${{ github.sha }}
+        path: artifacts/BUILD_INFO.txt
+        retention-days: 30
+    
+    - name: Release assets
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/WhisperTranscriber-1.0.0-NSIS-Setup.exe
+          artifacts/WhisperTranscriber-1.0.0-InnoSetup.exe
+          artifacts/BUILD_INFO.txt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,7 @@
+# Build requirements for creating Windows installer
+pyinstaller>=5.13.0
+setuptools>=68.0.0
+wheel>=0.41.0
+
+# Include all runtime requirements
+-r requirements.txt
