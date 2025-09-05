@@ -53,10 +53,12 @@ jobs:
         update: true
         install: >-
           mingw-w64-x86_64-gtk4
-          mingw-w64-x86_64-python3-gobject
+          mingw-w64-x86_64-python
+          mingw-w64-x86_64-python-pip
+          mingw-w64-x86_64-python-gobject
           mingw-w64-x86_64-pkg-config
           mingw-w64-x86_64-gobject-introspection
-          mingw-w64-x86_64-python3-cairo
+          mingw-w64-x86_64-python-cairo
     
     - name: Setup GTK4 environment
       run: |
@@ -89,35 +91,33 @@ jobs:
       shell: bash
     
     - name: Setup MSYS2 Python environment
+      shell: msys2 {0}
       run: |
-        # Install PyGObject in MSYS2 Python environment
-        /c/msys64/mingw64/bin/python -m pip install --upgrade pip
-        /c/msys64/mingw64/bin/python -m pip install pyinstaller
+        # Verify MSYS2 Python installation
+        python --version
+        pip --version
         
-        # Copy main Python packages to MSYS2 environment
-        python -c "
-        import sys, os, shutil
-        main_site = [p for p in sys.path if 'site-packages' in p][0]
-        msys2_python = '/c/msys64/mingw64/bin/python'
+        # Install PyInstaller in MSYS2
+        pip install pyinstaller
         
-        # Get MSYS2 site-packages path
-        import subprocess
-        result = subprocess.run([msys2_python, '-c', 'import site; print(site.getsitepackages()[0])'], 
-                              capture_output=True, text=True, shell=True)
-        msys2_site = result.stdout.strip().replace('\\', '/')
+        # Install additional Python packages in MSYS2
+        pip install numpy tqdm psutil
         
-        # Copy packages
-        packages = ['torch', 'torchaudio', 'numpy', 'tqdm', 'numba', 'ffmpeg', 'psutil', 'whisper']
-        for pkg in packages:
-            src = os.path.join(main_site, pkg)
-            if os.path.exists(src):
-                dst = os.path.join(msys2_site, pkg)
-                if os.path.exists(dst):
-                    shutil.rmtree(dst)
-                shutil.copytree(src, dst)
-                print(f'Copied {pkg} to MSYS2 environment')
-        "
-      shell: bash
+        # Test PyGObject import
+        python -c "import gi; print('PyGObject available')"
+        python -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print('GTK4 working')"
+    
+    - name: Install PyTorch in MSYS2
+      shell: msys2 {0}
+      run: |
+        # Install PyTorch CPU version in MSYS2
+        pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+        
+        # Install Whisper
+        pip install git+https://github.com/openai/whisper.git
+        
+        # Install other dependencies
+        pip install ffmpeg-python numba
     
     - name: Install NSIS
       run: |
@@ -141,22 +141,20 @@ jobs:
       shell: bash
     
     - name: Test MSYS2 Python imports
+      shell: msys2 {0}
       run: |
-        /c/msys64/mingw64/bin/python -c "import sys; print('MSYS2 Python executable:', sys.executable)"
-        /c/msys64/mingw64/bin/python -c "import gi; print('PyGObject version:', gi.__version__)"
-        /c/msys64/mingw64/bin/python -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print('GTK4 import successful')"
-        /c/msys64/mingw64/bin/python -c "import torch; print('PyTorch version:', torch.__version__)"
-      shell: bash
+        python -c "import sys; print('MSYS2 Python executable:', sys.executable)"
+        python -c "import gi; print('PyGObject version:', gi.__version__)"
+        python -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print('GTK4 import successful')"
+        python -c "import torch; print('PyTorch version:', torch.__version__)"
+        python -c "import whisper; print('Whisper available')"
       continue-on-error: true
     
     - name: Build executable with PyInstaller
+      shell: msys2 {0}
       run: |
-        # Use MSYS2 Python with all dependencies
-        export PATH="/c/msys64/mingw64/bin:$PATH"
-        
-        # Build with MSYS2 PyInstaller
-        /c/msys64/mingw64/bin/python -m PyInstaller whisper_transcriber.spec --clean --noconfirm
-      shell: bash
+        # Build with MSYS2 PyInstaller that has access to GTK4
+        python -m PyInstaller whisper_transcriber.spec --clean --noconfirm
     
     - name: Verify executable
       run: |
