@@ -73,7 +73,7 @@ jobs:
         pip install pyinstaller
       shell: bash
     
-    - name: Install Python dependencies with GTK4 support
+    - name: Install Python dependencies (non-GTK)
       run: |
         # Install PyTorch with CPU support first
         pip install torch>=1.9.0 --index-url https://download.pytorch.org/whl/cpu
@@ -86,10 +86,37 @@ jobs:
         pip install ffmpeg-python>=0.2.0
         pip install psutil>=5.8.0
         pip install git+https://github.com/openai/whisper.git
+      shell: bash
+    
+    - name: Setup MSYS2 Python environment
+      run: |
+        # Install PyGObject in MSYS2 Python environment
+        /c/msys64/mingw64/bin/python -m pip install --upgrade pip
+        /c/msys64/mingw64/bin/python -m pip install pyinstaller
         
-        # Install PyGObject and Cairo using pre-built wheels
-        pip install --only-binary=all pycairo
-        pip install --only-binary=all PyGObject
+        # Copy main Python packages to MSYS2 environment
+        python -c "
+        import sys, os, shutil
+        main_site = [p for p in sys.path if 'site-packages' in p][0]
+        msys2_python = '/c/msys64/mingw64/bin/python'
+        
+        # Get MSYS2 site-packages path
+        import subprocess
+        result = subprocess.run([msys2_python, '-c', 'import site; print(site.getsitepackages()[0])'], 
+                              capture_output=True, text=True, shell=True)
+        msys2_site = result.stdout.strip().replace('\\', '/')
+        
+        # Copy packages
+        packages = ['torch', 'torchaudio', 'numpy', 'tqdm', 'numba', 'ffmpeg', 'psutil', 'whisper']
+        for pkg in packages:
+            src = os.path.join(main_site, pkg)
+            if os.path.exists(src):
+                dst = os.path.join(msys2_site, pkg)
+                if os.path.exists(dst):
+                    shutil.rmtree(dst)
+                shutil.copytree(src, dst)
+                print(f'Copied {pkg} to MSYS2 environment')
+        "
       shell: bash
     
     - name: Install NSIS
@@ -113,21 +140,22 @@ jobs:
         pkg-config --modversion gtk4
       shell: bash
     
-    - name: Test Python imports
+    - name: Test MSYS2 Python imports
       run: |
-        python -c "import sys; print('Python executable:', sys.executable)"
-        python -c "import gi; print('PyGObject version:', gi.__version__)"
-        python -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print('GTK4 import successful')"
+        /c/msys64/mingw64/bin/python -c "import sys; print('MSYS2 Python executable:', sys.executable)"
+        /c/msys64/mingw64/bin/python -c "import gi; print('PyGObject version:', gi.__version__)"
+        /c/msys64/mingw64/bin/python -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print('GTK4 import successful')"
+        /c/msys64/mingw64/bin/python -c "import torch; print('PyTorch version:', torch.__version__)"
       shell: bash
       continue-on-error: true
     
     - name: Build executable with PyInstaller
       run: |
-        # Ensure GTK4 runtime is in PATH
+        # Use MSYS2 Python with all dependencies
         export PATH="/c/msys64/mingw64/bin:$PATH"
         
-        # Build with PyInstaller
-        pyinstaller whisper_transcriber.spec --clean --noconfirm
+        # Build with MSYS2 PyInstaller
+        /c/msys64/mingw64/bin/python -m PyInstaller whisper_transcriber.spec --clean --noconfirm
       shell: bash
     
     - name: Verify executable
