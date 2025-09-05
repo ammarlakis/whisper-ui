@@ -9,6 +9,92 @@ import atexit
 
 from pathlib import Path
 from datetime import timedelta
+import logging
+
+# -------------------- Debug / Logging --------------------
+def _parse_args(argv):
+    debug = False
+    log_file = None
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == '--debug':
+            debug = True
+            i += 1
+            continue
+        if arg.startswith('--log-file='):
+            log_file = arg.split('=', 1)[1]
+            i += 1
+            continue
+        if arg == '--log-file' and i + 1 < len(argv):
+            log_file = argv[i + 1]
+            i += 2
+            continue
+        i += 1
+    return debug, log_file
+
+def _ensure_console():
+    if os.name == 'nt':
+        try:
+            import ctypes
+            # Allocate a new console window if not already attached
+            ctypes.windll.kernel32.AllocConsole()
+            # Rebind stdio to the console
+            sys.stdout = open('CONOUT$', 'w', buffering=1, encoding='utf-8', errors='replace')
+            sys.stderr = open('CONOUT$', 'w', buffering=1, encoding='utf-8', errors='replace')
+            try:
+                sys.stdin = open('CONIN$', 'r', encoding='utf-8', errors='replace')
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+def _setup_logging(debug: bool, log_file: str | None):
+    try:
+        handlers = []
+        if debug and os.name == 'nt':
+            _ensure_console()
+        if log_file is None:
+            # Default log location on Windows under LocalAppData; otherwise in home dir
+            base_logs = Path(os.getenv('LOCALAPPDATA', Path.home())) / 'WhisperTranscriber' / 'logs'
+            base_logs.mkdir(parents=True, exist_ok=True)
+            log_file = str(base_logs / 'whisper_transcriber.log')
+        fh = logging.FileHandler(log_file, encoding='utf-8')
+        handlers.append(fh)
+        if debug:
+            handlers.append(logging.StreamHandler(sys.stdout))
+        logging.basicConfig(
+            level=logging.DEBUG if debug else logging.INFO,
+            format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+            handlers=handlers,
+        )
+        logging.getLogger(__name__).debug('Logging initialized. debug=%s, file=%s', debug, log_file)
+    except Exception:
+        pass
+
+DEBUG_MODE, DEBUG_LOGFILE = _parse_args(sys.argv[1:])
+if DEBUG_MODE:
+    # Make GLib verbose and unbuffer Python stdio
+    os.environ.setdefault('G_MESSAGES_DEBUG', 'all')
+    os.environ.setdefault('PYTHONUNBUFFERED', '1')
+_setup_logging(DEBUG_MODE, DEBUG_LOGFILE)
+
+def _install_exception_hook():
+    def _hook(exc_type, exc_value, exc_traceback):
+        try:
+            logging.exception("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
+        finally:
+            # Also show a message box on Windows if no console
+            if os.name == 'nt' and not DEBUG_MODE:
+                try:
+                    import ctypes, traceback as _tb
+                    msg = ''.join(_tb.format_exception(exc_type, exc_value, exc_traceback))[-1600:]
+                    ctypes.windll.user32.MessageBoxW(None, f"An unexpected error occurred:\n{msg}", "Whisper Transcriber", 0x10)
+                except Exception:
+                    pass
+    sys.excepthook = _hook
+
+_install_exception_hook()
 
 # Bootstrap GTK/GI environment for frozen (PyInstaller) builds on Windows
 def _bootstrap_gtk_env():
@@ -62,6 +148,23 @@ try:
     gi.require_version('Gtk', '4.0')
     gi.require_version('Adw', '1')
     from gi.repository import Gtk, Gio, GLib, Adw
+    # Route GLib logs to Python logging when debugging
+    if DEBUG_MODE:
+        try:
+            def _glib_handler(domain, level, message, user_data=None):
+                lvl = int(level)
+                if lvl & (GLib.LogLevelFlags.LEVEL_ERROR | GLib.LogLevelFlags.LEVEL_CRITICAL):
+                    logging.error('[%s] %s', domain, message)
+                elif lvl & GLib.LogLevelFlags.LEVEL_WARNING:
+                    logging.warning('[%s] %s', domain, message)
+                elif lvl & GLib.LogLevelFlags.LEVEL_INFO:
+                    logging.info('[%s] %s', domain, message)
+                else:
+                    logging.debug('[%s] %s', domain, message)
+            GLib.log_set_handler(None, GLib.LogLevelFlags.LEVEL_MASK, _glib_handler, None)
+            logging.debug('GLib logging handler installed')
+        except Exception:
+            pass
 except Exception as e:
     # Provide a visible error on Windows if GTK cannot be initialized
     if os.name == 'nt':
@@ -729,6 +832,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.update_status(message)
 
 def main():
+    logging.info('Starting Whisper Transcriber (debug=%s)', DEBUG_MODE)
     app = WhisperTranscriber()
     return app.run(None)
 
