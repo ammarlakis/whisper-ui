@@ -10,6 +10,7 @@ import atexit
 from pathlib import Path
 from datetime import timedelta
 import logging
+import shutil
 
 # -------------------- Debug / Logging --------------------
 def _parse_args(argv):
@@ -114,6 +115,14 @@ def _bootstrap_gtk_env():
                     os.add_dll_directory(bin_dir)
             except Exception:
                 pass
+        # Prepend our base directory to PATH so helper executables (e.g., ffmpeg.exe) are found
+        try:
+            os.environ['PATH'] = base_dir + os.pathsep + os.environ.get('PATH', '')
+            bin_dir = os.path.join(base_dir, 'bin')
+            if os.path.isdir(bin_dir):
+                os.environ['PATH'] = bin_dir + os.pathsep + os.environ['PATH']
+        except Exception:
+            pass
 
         # GI typelibs
         candidates = [
@@ -142,6 +151,30 @@ def _bootstrap_gtk_env():
         pass
 
 _bootstrap_gtk_env()
+
+def _ensure_ffmpeg():
+    try:
+        if shutil.which('ffmpeg'):
+            logging.debug('ffmpeg found on PATH')
+            return
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable)) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+        local_ffmpeg = os.path.join(base_dir, 'ffmpeg.exe') if os.name == 'nt' else os.path.join(base_dir, 'ffmpeg')
+        if os.path.exists(local_ffmpeg):
+            os.environ['PATH'] = os.path.dirname(local_ffmpeg) + os.pathsep + os.environ.get('PATH', '')
+            logging.info('ffmpeg not on PATH; using bundled: %s', local_ffmpeg)
+        else:
+            msg = 'FFmpeg not found. Please install FFmpeg or place ffmpeg.exe next to the application.'
+            logging.error(msg)
+            if os.name == 'nt' and DEBUG_MODE:
+                try:
+                    import ctypes
+                    ctypes.windll.user32.MessageBoxW(None, msg, 'Whisper Transcriber', 0x10)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+_ensure_ffmpeg()
 
 try:
     import gi

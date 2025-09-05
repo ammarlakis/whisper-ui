@@ -126,11 +126,17 @@ jobs:
         choco install nsis -y
         echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
       shell: bash
-    
+
     - name: Install Inno Setup
       run: |
         choco install innosetup -y
         echo "C:\Program Files (x86)\Inno Setup 6" >> $GITHUB_PATH
+      shell: bash
+
+    - name: Install FFmpeg
+      run: |
+        choco install ffmpeg -y
+        where ffmpeg
       shell: bash
     
     - name: Verify installations
@@ -164,6 +170,19 @@ jobs:
         fi
         echo "Executable built successfully"
         ls -la dist/WhisperTranscriber/
+      shell: bash
+
+    - name: Bundle ffmpeg into app
+      run: |
+        set -e
+        FFMPEG_PATH=$(where ffmpeg | head -n 1 || true)
+        if [ -z "$FFMPEG_PATH" ]; then
+          echo "WARNING: ffmpeg not found in PATH; skipping bundle"
+        else
+          echo "Using ffmpeg at: $FFMPEG_PATH"
+          cp "$FFMPEG_PATH" "dist/WhisperTranscriber/ffmpeg.exe"
+        fi
+        ls -la dist/WhisperTranscriber/ | sed -n '1,120p'
       shell: bash
     
     - name: Create LICENSE.txt if missing
