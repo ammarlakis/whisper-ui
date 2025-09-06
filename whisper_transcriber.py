@@ -256,15 +256,15 @@ try:
             logging.debug('GLib logging handler installed')
         except Exception:
             pass
-    except Exception as e:
-        # Provide a visible error on Windows if GTK cannot be initialized
-        if os.name == 'nt':
-            try:
-                import ctypes
-                ctypes.windll.user32.MessageBoxW(None, f"Failed to initialize GTK:\n{e}", "Whisper Transcriber", 0x10)
-            except Exception:
-                pass
-        raise
+except Exception as e:
+    # Provide a visible error on Windows if GTK cannot be initialized
+    if os.name == 'nt':
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, f"Failed to initialize GTK:\n{e}", "Whisper Transcriber", 0x10)
+        except Exception:
+            pass
+    raise
 
 class WhisperTranscriber(Adw.Application):    
     def __init__(self):
