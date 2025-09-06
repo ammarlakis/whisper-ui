@@ -141,6 +141,12 @@ def _bootstrap_gtk_env():
         share_dir = os.path.join(base_dir, 'share')
         if os.path.isdir(share_dir):
             os.environ['XDG_DATA_DIRS'] = share_dir + os.pathsep + os.environ.get('XDG_DATA_DIRS', '')
+            # Help GTK locate its runtime resources on Windows
+            os.environ.setdefault('GTK_DATA_PREFIX', base_dir)
+            os.environ.setdefault('GTK_EXE_PREFIX', base_dir)
+            schemas_dir = os.path.join(share_dir, 'glib-2.0', 'schemas')
+            if os.path.isdir(schemas_dir):
+                os.environ.setdefault('GSETTINGS_SCHEMA_DIR', schemas_dir)
 
         # GDK pixbuf loaders
         gdk_loaders_dir = os.path.join(base_dir, 'lib', 'gdk-pixbuf-2.0', '2.10.0', 'loaders')

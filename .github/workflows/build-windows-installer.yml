@@ -172,17 +172,26 @@ jobs:
         ls -la dist/WhisperTranscriber/
       shell: bash
 
-    - name: Bundle ffmpeg into app
+    - name: Bundle real ffmpeg into app (not shim)
       run: |
         set -e
-        FFMPEG_PATH=$(where ffmpeg | head -n 1 || true)
-        if [ -z "$FFMPEG_PATH" ]; then
-          echo "WARNING: ffmpeg not found in PATH; skipping bundle"
-        else
-          echo "Using ffmpeg at: $FFMPEG_PATH"
-          cp "$FFMPEG_PATH" "dist/WhisperTranscriber/ffmpeg.exe"
+        # Prefer Chocolatey package real binary rather than shim
+        REAL_FFMPEG=$(powershell -NoProfile -Command "(Get-ChildItem -Recurse 'C:\\ProgramData\\chocolatey\\lib' -Filter ffmpeg.exe | Where-Object { $_.FullName -like '*\\tools\\ffmpeg\\bin\\ffmpeg.exe' } | Select-Object -First 1).FullName" | tr -d '\r')
+        if [ -z "$REAL_FFMPEG" ] || [ ! -f "$REAL_FFMPEG" ]; then
+          # Fallback to common location
+          if [ -f "C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe" ]; then
+            REAL_FFMPEG="C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe"
+          fi
         fi
-        ls -la dist/WhisperTranscriber/ | sed -n '1,120p'
+        if [ -z "$REAL_FFMPEG" ] || [ ! -f "$REAL_FFMPEG" ]; then
+          echo "WARNING: Could not locate real ffmpeg.exe in Chocolatey lib; skipping copy of shim"
+          echo "where ffmpeg:"
+          where ffmpeg || true
+        else
+          echo "Copying ffmpeg from: $REAL_FFMPEG"
+          cp "$REAL_FFMPEG" "dist/WhisperTranscriber/ffmpeg.exe"
+        fi
+        ls -la dist/WhisperTranscriber/ | sed -n '1,140p'
       shell: bash
     
     - name: Create LICENSE.txt if missing
