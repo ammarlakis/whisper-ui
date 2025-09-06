@@ -21,7 +21,9 @@ on:
 
 jobs:
   build-windows-installer:
-    runs-on: windows-latest
+    # Pin to a specific Windows image to avoid runner migrations changing behavior unexpectedly.
+    # See: https://github.com/actions/runner-images/issues/12677
+    runs-on: windows-2022
     
     strategy:
       matrix:
