@@ -11,6 +11,8 @@ from pathlib import Path
 from datetime import timedelta
 import logging
 import shutil
+import tempfile
+import wave
 
 # -------------------- Debug / Logging --------------------
 def _parse_args(argv):
@@ -152,29 +154,70 @@ def _bootstrap_gtk_env():
 
 _bootstrap_gtk_env()
 
+FFMPEG_PATH: str | None = None
+
 def _ensure_ffmpeg():
     try:
-        if shutil.which('ffmpeg'):
-            logging.debug('ffmpeg found on PATH')
-            return
+        global FFMPEG_PATH
+        # Prefer bundled ffmpeg next to the executable
         base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable)) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         local_ffmpeg = os.path.join(base_dir, 'ffmpeg.exe') if os.name == 'nt' else os.path.join(base_dir, 'ffmpeg')
         if os.path.exists(local_ffmpeg):
-            os.environ['PATH'] = os.path.dirname(local_ffmpeg) + os.pathsep + os.environ.get('PATH', '')
-            logging.info('ffmpeg not on PATH; using bundled: %s', local_ffmpeg)
+            FFMPEG_PATH = local_ffmpeg
         else:
-            msg = 'FFmpeg not found. Please install FFmpeg or place ffmpeg.exe next to the application.'
-            logging.error(msg)
-            if os.name == 'nt' and DEBUG_MODE:
-                try:
-                    import ctypes
-                    ctypes.windll.user32.MessageBoxW(None, msg, 'Whisper Transcriber', 0x10)
-                except Exception:
-                    pass
+            FFMPEG_PATH = shutil.which('ffmpeg')
+        if FFMPEG_PATH:
+            logging.debug('ffmpeg path resolved: %s', FFMPEG_PATH)
+            # Ensure its directory is first on PATH
+            os.environ['PATH'] = os.path.dirname(FFMPEG_PATH) + os.pathsep + os.environ.get('PATH', '')
+            return
+        msg = 'FFmpeg not found. Please install FFmpeg or place ffmpeg.exe next to the application.'
+        logging.error(msg)
+        if os.name == 'nt' and DEBUG_MODE:
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(None, msg, 'Whisper Transcriber', 0x10)
+            except Exception:
+                pass
     except Exception:
         pass
 
 _ensure_ffmpeg()
+
+def _safe_load_audio(file_path: str):
+    """Load audio as float32 16k mono using whisper or ffmpeg fallback.
+    Returns numpy.ndarray.
+    """
+    try:
+        import whisper
+        return whisper.load_audio(file_path)
+    except Exception as e:
+        logging.warning('whisper.load_audio failed, falling back to ffmpeg: %s', e)
+        # Fallback: use ffmpeg to decode to PCM WAV and read via wave
+        try:
+            import numpy as np
+            ff = FFMPEG_PATH or shutil.which('ffmpeg') or 'ffmpeg'
+            with tempfile.TemporaryDirectory() as td:
+                out_wav = os.path.join(td, 'tmp.wav')
+                cmd = [ff, '-nostdin', '-v', 'error', '-y', '-i', file_path, '-ac', '1', '-ar', '16000', out_wav]
+                logging.debug('Running ffmpeg fallback: %s', ' '.join([f'"{c}"' if ' ' in str(c) else str(c) for c in cmd]))
+                res = subprocess.run(cmd, capture_output=True)
+                if res.returncode != 0 or not os.path.exists(out_wav):
+                    stderr = (res.stderr or b'').decode('utf-8', errors='ignore')
+                    raise RuntimeError(f'ffmpeg failed: rc={res.returncode} stderr={stderr}')
+                with wave.open(out_wav, 'rb') as w:
+                    sr = w.getframerate()
+                    ch = w.getnchannels()
+                    if sr != 16000:
+                        logging.debug('ffmpeg produced %s Hz; expected 16000', sr)
+                    if ch != 1:
+                        logging.debug('ffmpeg produced %s channels; expected 1', ch)
+                    frames = w.readframes(w.getnframes())
+                audio = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+                return audio
+        except Exception as fe:
+            logging.error('Audio decode fallback failed: %s', fe)
+            raise
 
 try:
     import gi
@@ -597,7 +640,7 @@ class MainWindow(Adw.ApplicationWindow):
                     import numpy as np
                     
                     # Load and prepare audio (don't trim the full audio yet)
-                    audio = whisper.load_audio(file_path)
+                    audio = _safe_load_audio(file_path)
                     original_duration = len(audio) / 16000  # Duration in seconds
                     
                     # Detect language using first 30 seconds
