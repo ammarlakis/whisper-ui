@@ -91,44 +91,15 @@ Section "Desktop Shortcut" SecDesktop
     CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE}"
 SectionEnd
 
-Section "File Associations" SecFileAssoc
-    ; Associate common audio file types
-    WriteRegStr HKCR ".mp3\OpenWithProgids" "${APP_NAME}.mp3" ""
-    WriteRegStr HKCR ".wav\OpenWithProgids" "${APP_NAME}.wav" ""
-    WriteRegStr HKCR ".m4a\OpenWithProgids" "${APP_NAME}.m4a" ""
-    WriteRegStr HKCR ".flac\OpenWithProgids" "${APP_NAME}.flac" ""
-    WriteRegStr HKCR ".ogg\OpenWithProgids" "${APP_NAME}.ogg" ""
-    
-    WriteRegStr HKCR "${APP_NAME}.mp3" "" "MP3 Audio File"
-    WriteRegStr HKCR "${APP_NAME}.mp3\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.mp3\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
-    
-    WriteRegStr HKCR "${APP_NAME}.wav" "" "WAV Audio File"
-    WriteRegStr HKCR "${APP_NAME}.wav\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.wav\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
-    
-    WriteRegStr HKCR "${APP_NAME}.m4a" "" "M4A Audio File"
-    WriteRegStr HKCR "${APP_NAME}.m4a\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.m4a\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
-    
-    WriteRegStr HKCR "${APP_NAME}.flac" "" "FLAC Audio File"
-    WriteRegStr HKCR "${APP_NAME}.flac\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.flac\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
-    
-    WriteRegStr HKCR "${APP_NAME}.ogg" "" "OGG Audio File"
-    WriteRegStr HKCR "${APP_NAME}.ogg\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.ogg\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
-SectionEnd
+; (File associations intentionally not created by installer)
 
 ; Section descriptions
 LangString DESC_SecCore ${LANG_ENGLISH} "Core application files (required)"
 LangString DESC_SecDesktop ${LANG_ENGLISH} "Create a desktop shortcut"
-LangString DESC_SecFileAssoc ${LANG_ENGLISH} "Associate audio files with ${APP_NAME}"
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${SecCore} $(DESC_SecCore)
     !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} $(DESC_SecDesktop)
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecFileAssoc} $(DESC_SecFileAssoc)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; Uninstaller section

@@ -41,7 +41,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1
-Name: "associatefiles"; Description: "Associate audio files with Whisper Transcriber"; GroupDescription: "File associations"
 
 [Files]
 Source: "dist\WhisperTranscriber\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -59,32 +58,7 @@ Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Whisper Transcribe
 Root: HKLM; Subkey: "Software\Whisper Transcriber"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Whisper Transcriber"; ValueType: string; ValueName: "Version"; ValueData: "1.0.0"; Flags: uninsdeletekey
 
-; File associations (only if task is selected)
-Root: HKCR; Subkey: ".mp3\OpenWithProgids"; ValueType: string; ValueName: "WhisperTranscriber.mp3"; ValueData: ""; Tasks: associatefiles
-Root: HKCR; Subkey: ".wav\OpenWithProgids"; ValueType: string; ValueName: "WhisperTranscriber.wav"; ValueData: ""; Tasks: associatefiles
-Root: HKCR; Subkey: ".m4a\OpenWithProgids"; ValueType: string; ValueName: "WhisperTranscriber.m4a"; ValueData: ""; Tasks: associatefiles
-Root: HKCR; Subkey: ".flac\OpenWithProgids"; ValueType: string; ValueName: "WhisperTranscriber.flac"; ValueData: ""; Tasks: associatefiles
-Root: HKCR; Subkey: ".ogg\OpenWithProgids"; ValueType: string; ValueName: "WhisperTranscriber.ogg"; ValueData: ""; Tasks: associatefiles
-
-Root: HKCR; Subkey: "WhisperTranscriber.mp3"; ValueType: string; ValueName: ""; ValueData: "MP3 Audio File"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.mp3\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\WhisperTranscriber.exe,0"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.mp3\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\WhisperTranscriber.exe"" ""%1"""; Tasks: associatefiles
-
-Root: HKCR; Subkey: "WhisperTranscriber.wav"; ValueType: string; ValueName: ""; ValueData: "WAV Audio File"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.wav\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\WhisperTranscriber.exe,0"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.wav\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\WhisperTranscriber.exe"" ""%1"""; Tasks: associatefiles
-
-Root: HKCR; Subkey: "WhisperTranscriber.m4a"; ValueType: string; ValueName: ""; ValueData: "M4A Audio File"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.m4a\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\WhisperTranscriber.exe,0"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.m4a\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\WhisperTranscriber.exe"" ""%1"""; Tasks: associatefiles
-
-Root: HKCR; Subkey: "WhisperTranscriber.flac"; ValueType: string; ValueName: ""; ValueData: "FLAC Audio File"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.flac\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\WhisperTranscriber.exe,0"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.flac\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\WhisperTranscriber.exe"" ""%1"""; Tasks: associatefiles
-
-Root: HKCR; Subkey: "WhisperTranscriber.ogg"; ValueType: string; ValueName: ""; ValueData: "OGG Audio File"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.ogg\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\WhisperTranscriber.exe,0"; Tasks: associatefiles
-Root: HKCR; Subkey: "WhisperTranscriber.ogg\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\WhisperTranscriber.exe"" ""%1"""; Tasks: associatefiles
+; File associations removed
 
 [Run]
 Filename: "{app}\WhisperTranscriber.exe"; Description: "{cm:LaunchProgram,Whisper Transcriber}"; Flags: nowait postinstall skipifsilent
