@@ -21,9 +21,8 @@ on:
 
 jobs:
   build-windows-installer:
-    # Pin to a specific Windows image to avoid runner migrations changing behavior unexpectedly.
-    # See: https://github.com/actions/runner-images/issues/12677
-    runs-on: windows-2022
+    # Target Windows Server 2025 image directly.
+    runs-on: windows-2025
     
     strategy:
       matrix:
