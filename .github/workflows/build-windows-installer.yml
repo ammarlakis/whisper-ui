@@ -8,16 +8,6 @@ on:
   release:
     types: [ published ]
   workflow_dispatch:
-    inputs:
-      installer_type:
-        description: 'Installer type to build'
-        required: true
-        default: 'both'
-        type: choice
-        options:
-        - nsis
-        - inno
-        - both
 
 jobs:
   build-windows-installer:
@@ -34,16 +24,6 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: Resolve installer type
-      id: resolve_installer
-      shell: bash
-      run: |
-        if [ -n "${{ github.event.inputs.installer_type }}" ]; then
-          echo "INSTALLER_TYPE=${{ github.event.inputs.installer_type }}" >> "$GITHUB_ENV"
-        else
-          # Default to NSIS for reliability unless specified
-          echo "INSTALLER_TYPE=nsis" >> "$GITHUB_ENV"
-        fi
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -145,7 +125,6 @@ jobs:
         python --version
         pip --version
         makensis -VERSION
-        iscc || true
         pkg-config --modversion gtk4
       shell: bash
     
@@ -223,26 +202,12 @@ jobs:
       shell: bash
     
     - name: Build NSIS Installer
-      if: env.INSTALLER_TYPE == 'nsis' || env.INSTALLER_TYPE == 'both'
       run: |
         makensis installer.nsi
         if [ -f "WhisperTranscriber-1.0.0-Setup.exe" ]; then
           echo "NSIS installer created successfully"
         else
           echo "ERROR: NSIS installer creation failed"
-          exit 1
-        fi
-      shell: bash
-    
-    - name: Build Inno Setup Installer
-      if: env.INSTALLER_TYPE == 'inno' || env.INSTALLER_TYPE == 'both'
-      run: |
-        mkdir -p installer_output
-        iscc installer.iss
-        if [ -f "installer_output/WhisperTranscriber-1.0.0-Setup.exe" ]; then
-          echo "Inno Setup installer created successfully"
-        else
-          echo "ERROR: Inno Setup installer creation failed"
           exit 1
         fi
       shell: bash
@@ -259,9 +224,6 @@ jobs:
           cp "WhisperTranscriber-1.0.0-Setup.exe" "artifacts/WhisperTranscriber-1.0.0-NSIS-Setup.exe"
         fi
         
-        if [ -f "installer_output/WhisperTranscriber-1.0.0-Setup.exe" ]; then
-          cp "installer_output/WhisperTranscriber-1.0.0-Setup.exe" "artifacts/WhisperTranscriber-1.0.0-InnoSetup.exe"
-        fi
         
         # Create build info
         echo "Build Information" > artifacts/BUILD_INFO.txt
@@ -283,20 +245,10 @@ jobs:
         retention-days: 30
     
     - name: Upload NSIS installer
-      if: env.INSTALLER_TYPE == 'nsis' || env.INSTALLER_TYPE == 'both'
       uses: actions/upload-artifact@v4
       with:
         name: whisper-transcriber-nsis-installer-${{ github.sha }}
         path: artifacts/WhisperTranscriber-1.0.0-NSIS-Setup.exe
-        retention-days: 30
-      continue-on-error: true
-    
-    - name: Upload Inno Setup installer
-      if: env.INSTALLER_TYPE == 'inno' || env.INSTALLER_TYPE == 'both'
-      uses: actions/upload-artifact@v4
-      with:
-        name: whisper-transcriber-inno-installer-${{ github.sha }}
-        path: artifacts/WhisperTranscriber-1.0.0-InnoSetup.exe
         retention-days: 30
       continue-on-error: true
     
@@ -313,7 +265,6 @@ jobs:
       with:
         files: |
           artifacts/WhisperTranscriber-1.0.0-NSIS-Setup.exe
-          artifacts/WhisperTranscriber-1.0.0-InnoSetup.exe
           artifacts/BUILD_INFO.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
