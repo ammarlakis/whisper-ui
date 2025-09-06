@@ -147,6 +147,10 @@ def _bootstrap_gtk_env():
             schemas_dir = os.path.join(share_dir, 'glib-2.0', 'schemas')
             if os.path.isdir(schemas_dir):
                 os.environ.setdefault('GSETTINGS_SCHEMA_DIR', schemas_dir)
+        # Prefer GL renderer to avoid black borders with ANGLE on some systems
+        os.environ.setdefault('GSK_RENDERER', 'opengl')
+        # Ensure Adwaita theme is selected if available
+        os.environ.setdefault('GTK_THEME', 'Adwaita')
 
         # GDK pixbuf loaders
         gdk_loaders_dir = os.path.join(base_dir, 'lib', 'gdk-pixbuf-2.0', '2.10.0', 'loaders')
@@ -230,6 +234,11 @@ try:
     gi.require_version('Gtk', '4.0')
     gi.require_version('Adw', '1')
     from gi.repository import Gtk, Gio, GLib, Adw
+    # Initialize libadwaita so resources/themes are loaded correctly
+    try:
+        Adw.init()
+    except Exception:
+        pass
     # Route GLib logs to Python logging when debugging
     if DEBUG_MODE:
         try:
@@ -247,15 +256,15 @@ try:
             logging.debug('GLib logging handler installed')
         except Exception:
             pass
-except Exception as e:
-    # Provide a visible error on Windows if GTK cannot be initialized
-    if os.name == 'nt':
-        try:
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(None, f"Failed to initialize GTK:\n{e}", "Whisper Transcriber", 0x10)
-        except Exception:
-            pass
-    raise
+    except Exception as e:
+        # Provide a visible error on Windows if GTK cannot be initialized
+        if os.name == 'nt':
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(None, f"Failed to initialize GTK:\n{e}", "Whisper Transcriber", 0x10)
+            except Exception:
+                pass
+        raise
 
 class WhisperTranscriber(Adw.Application):    
     def __init__(self):
@@ -431,10 +440,12 @@ class MainWindow(Adw.ApplicationWindow):
         filter_list = Gio.ListStore.new(Gtk.FileFilter)
         filter_list.append(filter_audio)
         dialog.set_filters(filter_list)
+
+        # Keep a reference so the dialog is not GC'd before the async callback
+        self._file_dialog = dialog
+        dialog.open(self, None, self.on_file_dialog_response)
         
-        dialog.open(self, None, self.on_file_dialog_response, None)
-        
-    def on_file_dialog_response(self, dialog, result, user_data):
+    def on_file_dialog_response(self, dialog, result):
         try:
             file = dialog.open_finish(result)
             if file:
