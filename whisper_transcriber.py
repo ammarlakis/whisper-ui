@@ -148,7 +148,7 @@ def _bootstrap_gtk_env():
             if os.path.isdir(schemas_dir):
                 os.environ.setdefault('GSETTINGS_SCHEMA_DIR', schemas_dir)
         # Prefer GL renderer to avoid black borders with ANGLE on some systems
-        os.environ.setdefault('GSK_RENDERER', 'opengl')
+        os.environ.setdefault('GSK_RENDERER', 'gl')
         # Ensure Adwaita theme is selected if available
         os.environ.setdefault('GTK_THEME', 'Adwaita')
 

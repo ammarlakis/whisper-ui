@@ -56,12 +56,50 @@ Section "Core Application" SecCore
     
     ; Copy application files
     File /r "dist\WhisperTranscriber\*.*"
+
+    ; Create launcher script to set GTK env and start the app hidden
+    FileOpen $0 "$INSTDIR\WhisperTranscriberLauncher.vbs" w
+    FileWrite $0 "Dim shell: Set shell = CreateObject($"WScript.Shell$")$$
+"
+    FileWrite $0 "Dim fso: Set fso = CreateObject($"Scripting.FileSystemObject$")$$
+"
+    FileWrite $0 "Dim env: Set env = shell.Environment($"PROCESS$")$$
+"
+    FileWrite $0 "env($"GSK_RENDERER$") = $"gl$"$$
+"
+    FileWrite $0 "env($"GTK_THEME$") = $"Adwaita$"$$
+"
+    FileWrite $0 "env($"GTK_DATA_PREFIX$") = $"$INSTDIR$"$$
+"
+    FileWrite $0 "env($"GTK_EXE_PREFIX$") = $"$INSTDIR$"$$
+"
+    FileWrite $0 "env($"GSETTINGS_SCHEMA_DIR$") = $"$INSTDIR\share\glib-2.0\schemas$"$$
+"
+    FileWrite $0 "env($"GDK_PIXBUF_MODULE_FILE$") = $"$INSTDIR\lib\gdk-pixbuf-2.0\2.10.0\loaders.cache$"$$
+"
+    FileWrite $0 "env($"GDK_PIXBUF_MODULEDIR$") = $"$INSTDIR\lib\gdk-pixbuf-2.0\2.10.0\loaders$"$$
+"
+    FileWrite $0 "shell.CurrentDirectory = $"$INSTDIR$"$$
+"
+    FileWrite $0 "Dim i, args: args = $"$"$$
+"
+    FileWrite $0 "For i = 0 To WScript.Arguments.Count - 1$$
+"
+    FileWrite $0 "  args = args & $" $" & $"$"$" & WScript.Arguments(i) & $"$"$"$$
+"
+    FileWrite $0 "Next$$
+"
+    FileWrite $0 "Dim cmd: cmd = $"$"$"$INSTDIR\WhisperTranscriber.exe$"$"$" & args$$
+"
+    FileWrite $0 "shell.Run cmd, 0, False$$
+"
+    FileClose $0
     
     ; Create shortcuts
     CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-    CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE}"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\WhisperTranscriberLauncher.vbs"
     CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\${APP_UNINSTALLER}"
-    CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE}"
+    CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\WhisperTranscriberLauncher.vbs"
     
     ; Write registry keys
     WriteRegStr HKLM "Software\${APP_NAME}" "InstallDir" "$INSTDIR"
@@ -100,23 +138,23 @@ Section "File Associations" SecFileAssoc
     
     WriteRegStr HKCR "${APP_NAME}.mp3" "" "MP3 Audio File"
     WriteRegStr HKCR "${APP_NAME}.mp3\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.mp3\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
+    WriteRegStr HKCR "${APP_NAME}.mp3\shell\open\command" "" '"$INSTDIR\WhisperTranscriberLauncher.vbs" "%1"'
     
     WriteRegStr HKCR "${APP_NAME}.wav" "" "WAV Audio File"
     WriteRegStr HKCR "${APP_NAME}.wav\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.wav\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
+    WriteRegStr HKCR "${APP_NAME}.wav\shell\open\command" "" '"$INSTDIR\WhisperTranscriberLauncher.vbs" "%1"'
     
     WriteRegStr HKCR "${APP_NAME}.m4a" "" "M4A Audio File"
     WriteRegStr HKCR "${APP_NAME}.m4a\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.m4a\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
+    WriteRegStr HKCR "${APP_NAME}.m4a\shell\open\command" "" '"$INSTDIR\WhisperTranscriberLauncher.vbs" "%1"'
     
     WriteRegStr HKCR "${APP_NAME}.flac" "" "FLAC Audio File"
     WriteRegStr HKCR "${APP_NAME}.flac\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.flac\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
+    WriteRegStr HKCR "${APP_NAME}.flac\shell\open\command" "" '"$INSTDIR\WhisperTranscriberLauncher.vbs" "%1"'
     
     WriteRegStr HKCR "${APP_NAME}.ogg" "" "OGG Audio File"
     WriteRegStr HKCR "${APP_NAME}.ogg\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE},0"
-    WriteRegStr HKCR "${APP_NAME}.ogg\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE}" "%1"'
+    WriteRegStr HKCR "${APP_NAME}.ogg\shell\open\command" "" '"$INSTDIR\WhisperTranscriberLauncher.vbs" "%1"'
 SectionEnd
 
 ; Section descriptions
